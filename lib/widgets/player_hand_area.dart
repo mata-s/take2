@@ -80,9 +80,9 @@ class PlayerHandArea extends StatelessWidget {
                     boxShadow: isPlayable && !isSelected
                         ? [
                             BoxShadow(
-                              color: const Color(0xFFFFC857).withOpacity(0.10),
-                              blurRadius: 8,
-                              spreadRadius: 10,
+                              color: const Color(0xFFFFC857).withOpacity(0.16),
+                              blurRadius: 12,
+                              spreadRadius: 1,
                             ),
                           ]
                         : const [],

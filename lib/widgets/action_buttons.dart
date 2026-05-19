@@ -66,17 +66,19 @@ class ActionButtons extends StatelessWidget {
               textStyle: const TextStyle(fontWeight: FontWeight.w900),
             ),
           ),
-          const SizedBox(width: 12),
-          FilledButton.icon(
-            onPressed: canReach ? onReach : null,
-            icon: const Icon(Icons.campaign_rounded),
-            label: const Text('リーチ'),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFFFC857),
-              foregroundColor: const Color(0xFF0E4B3C),
-              textStyle: const TextStyle(fontWeight: FontWeight.w900),
+          if (canReach) ...[
+            const SizedBox(width: 12),
+            FilledButton.icon(
+              onPressed: onReach,
+              icon: const Icon(Icons.campaign_rounded),
+              label: const Text('リーチ'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFFFFC857),
+                foregroundColor: const Color(0xFF0E4B3C),
+                textStyle: const TextStyle(fontWeight: FontWeight.w900),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

@@ -154,39 +154,36 @@ class _OpponentLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              player.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: isTurn ? const Color(0xFFFFC857) : Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w900,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '${player.name} ・ ${player.hand.length}枚',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: isTurn ? const Color(0xFFFFC857) : Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            shadows: [
+              Shadow(
+                color: Colors.black.withOpacity(0.28),
+                blurRadius: 6,
               ),
-            ),
-            const SizedBox(height: 2),
-            AnimatedSwitcher(
+            ],
+          ),
+        ),
+        SizedBox(
+          height: 18,
+          child: Center(
+            child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 220),
               switchInCurve: Curves.easeOut,
               switchOutCurve: Curves.easeIn,
               transitionBuilder: (child, animation) {
                 return FadeTransition(
                   opacity: animation,
-                  child: SizeTransition(
-                    sizeFactor: animation,
-                    axis: Axis.vertical,
-                    child: child,
-                  ),
+                  child: child,
                 );
               },
               child: player.hasFinished
@@ -195,22 +192,47 @@ class _OpponentLabel extends StatelessWidget {
                       height: 0,
                     )
                   : player.isReach
-                      ? const Text(
-                          'リーチ',
+                      ? const _OpponentStatusText(
                           key: ValueKey('reach'),
-                          style: TextStyle(
-                            color: Color(0xFFFFC857),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w900,
-                          ),
+                          label: 'リーチ中',
+                          color: Color(0xFFFFC857),
                         )
                       : const SizedBox(
                           key: ValueKey('normal'),
                           height: 0,
                         ),
             ),
-          ],
+          ),
         ),
+      ],
+    );
+  }
+}
+
+class _OpponentStatusText extends StatelessWidget {
+  const _OpponentStatusText({
+    super.key,
+    required this.label,
+    required this.color,
+  });
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: TextStyle(
+        color: color,
+        fontSize: 11,
+        fontWeight: FontWeight.w900,
+        shadows: [
+          Shadow(
+            color: color.withOpacity(0.45),
+            blurRadius: 8,
+          ),
+        ],
       ),
     );
   }
@@ -234,9 +256,9 @@ class _OpponentCardFan extends StatelessWidget {
       return const _FinishedBadge();
     }
 
-    // 相手の手札は中身を見せず、裏向きの束としてだけ表現する。
-    // 実際の枚数はラベルで表示し、カード束は最大5枚までにする。
-    final visibleCount = count <= 0 ? 0 : count.clamp(1, 5);
+    // 相手の手札は中身を見せず、裏向きの束として表現する。
+    // 見た目は最大7枚までに抑える。
+    final visibleCount = count <= 0 ? 0 : count.clamp(1, 7);
     if (visibleCount == 0) {
       return const SizedBox.shrink();
     }
@@ -253,7 +275,7 @@ class _OpponentCardFan extends StatelessWidget {
     };
 
     return SizedBox(
-      width: isSide ? 220 : 320,
+      width: isSide ? 250 : 360,
       height: isSide ? 164 : 160,
       child: Stack(
         clipBehavior: Clip.none,
@@ -331,9 +353,9 @@ class _OpponentBackCard extends StatelessWidget {
     final fanRotation = distance * 0.042;
 
     final offset = switch (direction) {
-      _OpponentDirection.top => Offset(distance * 18, distance.abs() * 2.2),
-      _OpponentDirection.left => Offset(distance.abs() * 1.8, distance * 14),
-      _OpponentDirection.right => Offset(-distance.abs() * 1.8, distance * 14),
+      _OpponentDirection.top => Offset(distance * 15, distance.abs() * 2.0),
+      _OpponentDirection.left => Offset(distance.abs() * 1.4, distance * 11),
+      _OpponentDirection.right => Offset(-distance.abs() * 1.4, distance * 11),
     };
 
     return Transform.translate(

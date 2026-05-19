@@ -9,6 +9,14 @@ import 'widgets/action_buttons.dart';
 import 'widgets/opponent_area.dart';
 import 'widgets/turn_banner.dart';
 import 'widgets/player_hand_area.dart';
+import 'widgets/effects/reach_banner.dart';
+import 'widgets/effects/dawn_effect.dart';
+import 'widgets/effects/finish_effect.dart';
+import 'widgets/effects/draw_effect.dart';
+import 'widgets/effects/suit_change_effect.dart';
+import 'widgets/effects/turn_start_effect.dart';
+import 'widgets/effects/pass_effect.dart';
+import 'widgets/effects/skip_effect.dart';
 
 class GamePage extends StatefulWidget {
   const GamePage({super.key});
@@ -32,6 +40,22 @@ class _GamePageState extends State<GamePage> {
       return '★';
   }
 }
+
+Color _suitColor(CardSuit suit) {
+  switch (suit) {
+    case CardSuit.heart:
+    case CardSuit.diamond:
+      return const Color(0xFFE84855);
+
+    case CardSuit.spade:
+    case CardSuit.club:
+      return const Color(0xFF1F2937);
+
+    case CardSuit.joker:
+      return const Color(0xFFFFC857);
+  }
+}
+
   final Set<int> selectedIndexes = {};
 
   final List<PlayingCard> deck = [];
@@ -40,17 +64,42 @@ class _GamePageState extends State<GamePage> {
   PlayingCard? fieldCard;
   int currentPlayerIndex = 0;
   bool hasDrawnThisTurn = false;
+  bool hasDeclinedReachThisTurn = false;
+  bool showFloatingReachPrompt = false;
+  bool showReachBanner = false;
+  String reachBannerPlayerName = '';
   bool mustDrawAgain = false;
   int pendingDrawCount = 0;
   int pendingSkipCount = 0;
   CardSuit? forcedSuit;
+  CardSuit? displayedSuitEffect;
   Offset playedCardBeginOffset = const Offset(0, 2.75);
   int playedByPlayerIndex = 0;
   List<PlayingCard> playedCardsForField = [];
   final List<String> finishOrder = [];
   bool canDawnNow = false;
+  bool isHikiDawnNow = false;
   int? dawnTargetPlayerIndex;
   int? fieldCardPlayerIndex;
+bool showDawnEffect = false;
+bool dawnEffectIsHikiDawn = false;
+String dawnEffectPlayerName = '';
+String dawnEffectTargetPlayerName = '';
+bool showFinishEffect = false;
+String finishEffectPlayerName = '';
+  int finishEffectPlace = 1;
+  bool showDrawEffect = false;
+  DrawEffectTarget drawEffectTarget = DrawEffectTarget.self;
+  int drawEffectCount = 1;
+
+  bool showTurnStartEffect = false;
+  String turnStartEffectPlayerName = '';
+  bool showPassEffect = false;
+  String passEffectPlayerName = '';
+
+  bool showSkipEffect = false;
+String skipEffectPlayerName = '';
+  DateTime? cpuBlockedUntil;
 
   PlayerState get currentPlayer => players[currentPlayerIndex];
 
@@ -71,10 +120,10 @@ class _GamePageState extends State<GamePage> {
     players
       ..clear()
       ..addAll([
-        PlayerState(name: 'あなた', hand: DeckService.drawCards(deck, 5)),
-        PlayerState(name: 'CPU 1', hand: DeckService.drawCards(deck, 5)),
-        PlayerState(name: 'CPU 2', hand: DeckService.drawCards(deck, 5)),
-        PlayerState(name: 'CPU 3', hand: DeckService.drawCards(deck, 5)),
+        PlayerState(name: 'あなた', hand: DeckService.drawCards(deck, 7)),
+        PlayerState(name: 'CPU 1', hand: DeckService.drawCards(deck, 7)),
+        PlayerState(name: 'CPU 2', hand: DeckService.drawCards(deck, 7)),
+        PlayerState(name: 'CPU 3', hand: DeckService.drawCards(deck, 7)),
       ]);
 
     // fieldCard should only be drawn inside the do-while loop below
@@ -95,25 +144,216 @@ if (fieldCard!.isJoker && discardPile.length > 1) {
 }
     currentPlayerIndex = 0;
     hasDrawnThisTurn = false;
+    hasDeclinedReachThisTurn = false;
+    showFloatingReachPrompt = false;
+    showReachBanner = false;
+    reachBannerPlayerName = '';
+
     pendingDrawCount = 0;
     pendingSkipCount = 0;
     forcedSuit = null;
+    displayedSuitEffect = null;
     playedCardBeginOffset = const Offset(0, 2.75);
     playedByPlayerIndex = 0;
     playedCardsForField = fieldCard == null ? [] : [fieldCard!];
     selectedIndexes.clear();
     finishOrder.clear();
     canDawnNow = false;
+    isHikiDawnNow = false;
     dawnTargetPlayerIndex = null;
     fieldCardPlayerIndex = null;
+    showDawnEffect = false;
+    dawnEffectIsHikiDawn = false;
+    dawnEffectPlayerName = '';
+    dawnEffectTargetPlayerName = '';
+    showFinishEffect = false;
+    finishEffectPlayerName = '';
+    finishEffectPlace = 1;
+    showDrawEffect = false;
+    drawEffectTarget = DrawEffectTarget.self;
+    drawEffectCount = 1;
+    showTurnStartEffect = false;
+    turnStartEffectPlayerName = '';
+    showPassEffect = false;
+    passEffectPlayerName = '';
+    showSkipEffect = false;
+    skipEffectPlayerName = '';
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (players.isEmpty) return;
+      _showTurnStartEffect(players[0].name);
+    });
     _scheduleCpuTurnIfNeeded();
   }
+
+  void _blockCpuFor(Duration duration) {
+    final until = DateTime.now().add(duration);
+
+    if (cpuBlockedUntil == null || until.isAfter(cpuBlockedUntil!)) {
+      cpuBlockedUntil = until;
+    }
+  }
+
+  Duration _remainingCpuBlockDuration() {
+    final until = cpuBlockedUntil;
+    if (until == null) return Duration.zero;
+
+    final remaining = until.difference(DateTime.now());
+    if (remaining.isNegative) {
+      cpuBlockedUntil = null;
+      return Duration.zero;
+    }
+
+    return remaining;
+  }
+
+  void _showReachBanner(String playerName) {
+    _blockCpuFor(const Duration(milliseconds: 1150));
+    setState(() {
+      reachBannerPlayerName = playerName;
+      showReachBanner = true;
+    });
+
+    Future.delayed(const Duration(milliseconds: 1100), () {
+      if (!mounted) return;
+      if (reachBannerPlayerName != playerName) return;
+
+      setState(() {
+        showReachBanner = false;
+      });
+    });
+  }
+
+void _showDawnEffect({
+  required bool isHikiDawn,
+  required String fromPlayerName,
+  required String toPlayerName,
+}) {
+  _blockCpuFor(const Duration(milliseconds: 850));
+  setState(() {
+    dawnEffectIsHikiDawn = isHikiDawn;
+    dawnEffectPlayerName = fromPlayerName;
+    dawnEffectTargetPlayerName = toPlayerName;
+    showDawnEffect = true;
+  });
+
+  Future.delayed(const Duration(milliseconds: 750), () {
+    if (!mounted) return;
+
+    setState(() {
+      showDawnEffect = false;
+    });
+  });
+}
+
+void _showFinishEffect({
+  required String playerName,
+  required int place,
+}) {
+  _blockCpuFor(const Duration(milliseconds: 1050));
+  setState(() {
+    finishEffectPlayerName = playerName;
+    finishEffectPlace = place;
+    showFinishEffect = true;
+  });
+
+  Future.delayed(const Duration(milliseconds: 950), () {
+    if (!mounted) return;
+
+    setState(() {
+      showFinishEffect = false;
+    });
+  });
+}
+
+
+void _showDrawEffect({
+  required int playerIndex,
+  required int count,
+}) {
+  _blockCpuFor(const Duration(milliseconds: 620));
+  final target = switch (playerIndex) {
+    0 => DrawEffectTarget.self,
+    1 => DrawEffectTarget.left,
+    2 => DrawEffectTarget.top,
+    3 => DrawEffectTarget.right,
+    _ => DrawEffectTarget.self,
+  };
+
+  setState(() {
+    drawEffectTarget = target;
+    drawEffectCount = count;
+    showDrawEffect = true;
+  });
+
+  Future.delayed(const Duration(milliseconds: 560), () {
+    if (!mounted) return;
+
+    setState(() {
+      showDrawEffect = false;
+    });
+  });
+}
+
+  void _showTurnStartEffect(String playerName) {
+    _blockCpuFor(const Duration(milliseconds: 900));
+    setState(() {
+      turnStartEffectPlayerName = playerName;
+      showTurnStartEffect = true;
+    });
+
+    Future.delayed(const Duration(milliseconds: 850), () {
+      if (!mounted) return;
+      if (turnStartEffectPlayerName != playerName) return;
+
+      setState(() {
+        showTurnStartEffect = false;
+      });
+    });
+  }
+
+  void _showPassEffect(String playerName) {
+    _blockCpuFor(const Duration(milliseconds: 760));
+    setState(() {
+      passEffectPlayerName = playerName;
+      showPassEffect = true;
+    });
+
+    Future.delayed(const Duration(milliseconds: 700), () {
+      if (!mounted) return;
+      if (passEffectPlayerName != playerName) return;
+
+      setState(() {
+        showPassEffect = false;
+      });
+    });
+  }
+
+  void _showSkipEffect(String playerName) {
+  _blockCpuFor(const Duration(milliseconds: 820));
+  setState(() {
+    skipEffectPlayerName = playerName;
+    showSkipEffect = true;
+  });
+
+  Future.delayed(const Duration(milliseconds: 760), () {
+    if (!mounted) return;
+    if (skipEffectPlayerName != playerName) return;
+
+    setState(() {
+      showSkipEffect = false;
+    });
+  });
+}
+
   void _checkDawnChance({
     required PlayingCard playedCard,
     required int playedByIndex,
   }) {
     if (playedByIndex == 0) {
       canDawnNow = false;
+      isHikiDawnNow = false;
       dawnTargetPlayerIndex = null;
       return;
     }
@@ -127,6 +367,7 @@ final canDawn = RuleService.canDawn(
 );
 
     canDawnNow = canDawn;
+    isHikiDawnNow = false;
     dawnTargetPlayerIndex = canDawn ? playedByIndex : null;
   }
 
@@ -139,9 +380,13 @@ final canDawn = RuleService.canDawn(
     final targetPlayer = players[dawnTargetPlayerIndex!];
     final targetIndex = dawnTargetPlayerIndex!;
     final dawnCards = List<PlayingCard>.from(dawnPlayer.hand);
+    final dawnMessage = isHikiDawnNow ? '引きどん成功！' : 'ドーン成功！';
+    final wasHikiDawn = isHikiDawnNow;
 
     setState(() {
       targetPlayer.hand.addAll(dawnCards);
+      targetPlayer.hasFinished = false;
+      finishOrder.remove(targetPlayer.name);
       currentPlayerIndex = targetIndex;
       hasDrawnThisTurn = false;
       mustDrawAgain = false;
@@ -153,13 +398,34 @@ final canDawn = RuleService.canDawn(
       dawnPlayer.isReach = false;
 
       canDawnNow = false;
+      isHikiDawnNow = false;
       dawnTargetPlayerIndex = null;
     });
 
+    _showDawnEffect(
+      isHikiDawn: wasHikiDawn,
+      fromPlayerName: dawnPlayer.name,
+      toPlayerName: targetPlayer.name,
+    );
+
+    if (dawnPlayer.hasFinished) {
+      final finishedPlayerName = dawnPlayer.name;
+      final finishedPlace = finishOrder.indexOf(dawnPlayer.name) + 1;
+
+      Future.delayed(const Duration(milliseconds: 850), () {
+        if (!mounted) return;
+
+        _showFinishEffect(
+          playerName: finishedPlayerName,
+          place: finishedPlace,
+        );
+      });
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('ドーン成功！'),
-        duration: Duration(milliseconds: 1000),
+      SnackBar(
+        content: Text(dawnMessage),
+        duration: const Duration(milliseconds: 1000),
       ),
     );
 
@@ -224,13 +490,14 @@ void _setFieldCard(
   discardPile.add(card);
 }
 
-  void _drawOneCard() {
+  Future<void> _drawOneCard() async {
     _recycleDiscardPileIfNeeded();
     if (deck.isEmpty) return;
     if (hasDrawnThisTurn && !mustDrawAgain) return;
 
     final isPenaltyDraw = pendingDrawCount > 0;
     final drawCount = isPenaltyDraw ? pendingDrawCount : 1;
+    final drawerIndex = currentPlayerIndex;
 
     setState(() {
       currentPlayer.hand.addAll(_drawCardsSafely(drawCount));
@@ -268,19 +535,38 @@ void _setFieldCard(
             hasDeclaredReach: currentPlayer.isReach,
           )) {
         canDawnNow = true;
+        isHikiDawnNow = true;
         dawnTargetPlayerIndex = lastPlayerIndex;
       } else {
         canDawnNow = false;
+        isHikiDawnNow = false;
         dawnTargetPlayerIndex = null;
       }
     });
+
+    if (!mounted) return;
+
+    _showDrawEffect(
+      playerIndex: drawerIndex,
+      count: drawCount,
+    );
+
+    setState(() {
+      showFloatingReachPrompt = currentPlayerIndex == 0 &&
+          !currentPlayer.isReach &&
+          RuleService.canReach(currentPlayer.hand) &&
+          !hasDeclinedReachThisTurn;
+    });
   }
-void _goToNextTurn() {
+void _goToNextTurn({Duration delayBeforeNextEffect = Duration.zero}) {
   if (players.isEmpty) return;
+  final skippedPlayerNames = <String>[];
 
   setState(() {
     selectedIndexes.clear();
     hasDrawnThisTurn = false;
+    hasDeclinedReachThisTurn = false;
+    showFloatingReachPrompt = false;
     mustDrawAgain = false;
 
     int skipRemaining = pendingSkipCount;
@@ -296,6 +582,7 @@ void _goToNextTurn() {
       }
 
       if (skipRemaining > 0) {
+        skippedPlayerNames.add(players[nextIndex].name);
         skipRemaining--;
         continue;
       }
@@ -305,7 +592,30 @@ void _goToNextTurn() {
     }
   });
 
-  _scheduleCpuTurnIfNeeded();
+  final shouldShowSkip = skippedPlayerNames.isNotEmpty;
+  final skippedPlayerName = shouldShowSkip ? skippedPlayerNames.last : null;
+
+  Future.delayed(delayBeforeNextEffect, () {
+    if (!mounted) return;
+
+    if (shouldShowSkip && skippedPlayerName != null) {
+      _showSkipEffect(skippedPlayerName);
+    }
+
+    final afterSkipDelay = shouldShowSkip
+        ? const Duration(milliseconds: 860)
+        : Duration.zero;
+
+    Future.delayed(afterSkipDelay, () {
+      if (!mounted) return;
+
+      if (players.isNotEmpty && currentPlayerIndex == 0) {
+        _showTurnStartEffect(currentPlayer.name);
+      }
+
+      _scheduleCpuTurnIfNeeded();
+    });
+  });
 }
 
   void _scheduleCpuTurnIfNeeded() {
@@ -313,11 +623,22 @@ void _goToNextTurn() {
     if (currentPlayerIndex == 0) return;
     if (canDawnNow) return;
 
-    Future.delayed(const Duration(milliseconds: 650), () {
+    final remainingBlock = _remainingCpuBlockDuration();
+    final delay = remainingBlock > Duration.zero
+        ? remainingBlock + const Duration(milliseconds: 420)
+        : const Duration(milliseconds: 950);
+
+    Future.delayed(delay, () {
       if (!mounted) return;
       if (players.isEmpty) return;
       if (currentPlayerIndex == 0) return;
       if (canDawnNow) return;
+
+      final stillBlocked = _remainingCpuBlockDuration();
+      if (stillBlocked > Duration.zero) {
+        _scheduleCpuTurnIfNeeded();
+        return;
+      }
 
       _playCpuTurn();
     });
@@ -325,6 +646,10 @@ void _goToNextTurn() {
 
   void _playCpuTurn() {
     final cpu = currentPlayer;
+    var didFinish = false;
+    var finishedPlayerName = cpu.name;
+    var finishedPlace = 0;
+    var didDeclareReach = false;
 
     final playableIndex = cpu.hand.indexWhere((card) {
       final willFinish = cpu.hand.length == 1;
@@ -380,12 +705,22 @@ void _goToNextTurn() {
 
         if (cpu.hand.isEmpty) {
           cpu.hasFinished = true;
+          finishedPlace = finishOrder.length + 1;
           finishOrder.add(cpu.name);
+          didFinish = true;
         }
       });
+      if (didFinish && !canDawnNow) {
+        _showFinishEffect(
+          playerName: finishedPlayerName,
+          place: finishedPlace,
+        );
+      }
       _refreshReachState(cpu);
       if (RuleService.canReach(cpu.hand)) {
         cpu.isReach = true;
+        didDeclareReach = true;
+        _showReachBanner(cpu.name);
       }
 
       if (canDawnNow) {
@@ -400,6 +735,7 @@ void _goToNextTurn() {
 
       final isPenaltyDraw = pendingDrawCount > 0;
       final drawCount = isPenaltyDraw ? pendingDrawCount : 1;
+      final drawerIndex = currentPlayerIndex;
 
       setState(() {
         cpu.hand.addAll(_drawCardsSafely(drawCount));
@@ -416,14 +752,39 @@ void _goToNextTurn() {
 
         _refreshReachState(cpu);
       });
+      _showDrawEffect(
+        playerIndex: drawerIndex,
+        count: drawCount,
+      );
+
+      Future.delayed(const Duration(milliseconds: 640), () {
+        if (!mounted) return;
+        _showPassEffect(cpu.name);
+      });
+
+      _goToNextTurn(delayBeforeNextEffect: const Duration(milliseconds: 1420));
+      return;
     }
 
-    _goToNextTurn();
+    _goToNextTurn(
+      delayBeforeNextEffect: didFinish
+          ? const Duration(milliseconds: 1080)
+          : didDeclareReach
+              ? const Duration(milliseconds: 1160)
+              : Duration.zero,
+    );
   }
 
   void _passTurn() {
     if (mustDrawAgain) return;
-    _goToNextTurn();
+
+    final passerName = currentPlayer.name;
+    _showPassEffect(passerName);
+
+    Future.delayed(const Duration(milliseconds: 360), () {
+      if (!mounted) return;
+      _goToNextTurn();
+    });
   }
 
   bool _canPlaySelectedCards() {
@@ -457,6 +818,10 @@ void _goToNextTurn() {
   Future<void> _playSelectedCards() async {
     if (selectedIndexes.isEmpty) return;
 
+    var didFinish = false;
+    var finishedPlayerName = currentPlayer.name;
+    var finishedPlace = 0;
+    var didDeclareReach = false;
     final hand = currentPlayer.hand;
     final selectedCards = selectedIndexes.map((index) => hand[index]).toList();
     final topCard = selectedCards.last;
@@ -526,10 +891,24 @@ void _goToNextTurn() {
     final beginX = (horizontalDistance * 0.28).clamp(-1.35, 1.35).toDouble();
 
     CardSuit? selectedForcedSuit;
-    if (RuleService.isSuitChangeCard(baseCard)) {
-      selectedForcedSuit = await _selectSuit();
-      if (selectedForcedSuit == null) return;
-    }
+if (RuleService.isSuitChangeCard(baseCard)) {
+  selectedForcedSuit = await _selectSuit();
+  if (selectedForcedSuit == null) return;
+
+  setState(() {
+    displayedSuitEffect = selectedForcedSuit;
+  });
+
+  Future.delayed(const Duration(milliseconds: 500), () {
+    if (!mounted) return;
+
+    setState(() {
+      if (displayedSuitEffect == selectedForcedSuit) {
+        displayedSuitEffect = null;
+      }
+    });
+  });
+}
 
     setState(() {
       playedByPlayerIndex = currentPlayerIndex;
@@ -566,23 +945,39 @@ void _goToNextTurn() {
       }
       if (hand.isEmpty) {
         currentPlayer.hasFinished = true;
+        finishedPlace = finishOrder.length + 1;
         finishOrder.add(currentPlayer.name);
+        didFinish = true;
       }
 
       mustDrawAgain = false;
       selectedIndexes.clear();
     });
 
+    if (didFinish && !canDawnNow) {
+      _showFinishEffect(
+        playerName: finishedPlayerName,
+        place: finishedPlace,
+      );
+    }
     if (!currentPlayer.isReach && RuleService.canReach(currentPlayer.hand)) {
       final shouldReach = await _confirmReachAfterPlay();
       if (shouldReach) {
         setState(() {
           currentPlayer.isReach = true;
         });
+        didDeclareReach = true;
+        _showReachBanner(currentPlayer.name);
       }
     }
     _refreshReachState(currentPlayer);
-    _goToNextTurn();
+    _goToNextTurn(
+      delayBeforeNextEffect: didFinish
+          ? const Duration(milliseconds: 1080)
+          : didDeclareReach
+              ? const Duration(milliseconds: 1160)
+              : Duration.zero,
+    );
   }
   Future<bool> _confirmReachAfterPlay() async {
     final result = await showModalBottomSheet<bool>(
@@ -691,6 +1086,15 @@ void _goToNextTurn() {
 
     setState(() {
       currentPlayer.isReach = true;
+      showFloatingReachPrompt = false;
+    });
+    _showReachBanner(currentPlayer.name);
+  }
+
+  void _declineReach() {
+    setState(() {
+      hasDeclinedReachThisTurn = true;
+      showFloatingReachPrompt = false;
     });
   }
 
@@ -740,7 +1144,14 @@ void _goToNextTurn() {
                               fontWeight: FontWeight.w900,
                             ),
                           ),
-                          child: Text(_suitLabel(suit)),
+                         child: Text(
+                           _suitLabel(suit),
+                           style: TextStyle(
+                             color: _suitColor(suit),
+                             fontSize: 26,
+                             fontWeight: FontWeight.w900,
+                           ),
+                         ),
                         ),
                       ),
                     );
@@ -795,9 +1206,9 @@ void _goToNextTurn() {
                 backgroundColor: const Color(0xFFFF5A5F),
                 foregroundColor: Colors.white,
                 icon: const Icon(Icons.flash_on_rounded),
-                label: const Text(
-                  'ドーン！',
-                  style: TextStyle(
+                label: Text(
+                  isHikiDawnNow ? '引きどん！' : 'ドーン！',
+                  style: const TextStyle(
                     fontWeight: FontWeight.w900,
                     fontSize: 16,
                   ),
@@ -806,8 +1217,10 @@ void _goToNextTurn() {
             )
           : null,
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
+            Column(
+              children: [
             if (players.isEmpty)
               const Expanded(
                 child: Center(
@@ -883,24 +1296,39 @@ void _goToNextTurn() {
               },
               playedCards: playedCardsForField,
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 14),
             ActionButtons(
               canPlay: _canPlaySelectedCards(),
               canDraw: currentPlayerIndex == 0 &&
+                  selectedIndexes.isEmpty &&
                   (!hasDrawnThisTurn || mustDrawAgain),
               canPass: currentPlayerIndex == 0 &&
                   hasDrawnThisTurn &&
                   !mustDrawAgain,
-              canReach: currentPlayerIndex == 0 &&
-                  RuleService.canReach(currentPlayer.hand) &&
-                  !currentPlayer.isReach,
+              canReach: false,
               pendingDrawCount: pendingDrawCount,
               onPlay: _playSelectedCards,
               onDraw: _drawOneCard,
               onPass: _passTurn,
               onReach: _declareReach,
             ),
+
             const SizedBox(height: 10),
+            SizedBox(
+              height: 26,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                child: players[0].isReach
+                    ? _StatusChip(
+                        key: const ValueKey('player-reach'),
+                        label: 'あなた：リーチ中 ${RuleService.handTotal(players[0].hand)}',
+                      )
+                    : const SizedBox(
+                        key: ValueKey('player-normal'),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 4),
             PlayerHandArea(
               hand: players[0].hand,
               selectedIndexes: selectedIndexes,
@@ -908,8 +1336,103 @@ void _goToNextTurn() {
               playableIndexes: _playableIndexesForPlayerHand(),
               onCardTap: _toggleSelectedCard,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 2),
             ],
+              ],
+          ),
+            
+            Positioned.fill(
+              child: ReachBanner(
+                playerName: reachBannerPlayerName,
+                visible: showReachBanner,
+              ),
+            ),
+            Positioned.fill(
+              child: DawnEffect(
+                visible: showDawnEffect,
+                isHikiDawn: dawnEffectIsHikiDawn,
+                fromPlayerName: dawnEffectPlayerName,
+                toPlayerName: dawnEffectTargetPlayerName,
+              ),
+            ),
+            Positioned.fill(
+              child: FinishEffect(
+                visible: showFinishEffect,
+                playerName: finishEffectPlayerName,
+                place: finishEffectPlace,
+              ),
+            ),
+            Positioned.fill(
+              child: DrawEffect(
+                visible: showDrawEffect,
+                target: drawEffectTarget,
+                count: drawEffectCount,
+              ),
+            ),
+            Positioned.fill(
+              child: TurnStartEffect(
+                visible: showTurnStartEffect,
+                playerName: turnStartEffectPlayerName,
+              ),
+            ),
+            Positioned.fill(
+              child: PassEffect(
+                visible: showPassEffect,
+                playerName: passEffectPlayerName,
+              ),
+            ),
+            Positioned.fill(
+              child: SkipEffect(
+                visible: showSkipEffect,
+                playerName: skipEffectPlayerName,
+              ),
+            ),
+            if (showFloatingReachPrompt &&
+                currentPlayerIndex == 0 &&
+                RuleService.canReach(currentPlayer.hand) &&
+                !currentPlayer.isReach &&
+                !hasDeclinedReachThisTurn)
+              Positioned(
+                bottom: 180,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      FilledButton(
+                        onPressed: _declineReach,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.white.withOpacity(0.16),
+                          foregroundColor: Colors.white,
+                        ),
+                        child: const Text('言わない'),
+                      ),
+                      const SizedBox(width: 10),
+                      FilledButton.icon(
+                        onPressed: _declareReach,
+                        icon: const Icon(Icons.flash_on_rounded, size: 18),
+                        label: const Text('リーチ'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFFFFC857),
+                          foregroundColor: const Color(0xFF0E4B3C),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            Positioned.fill(
+              child: SuitChangeEffect(
+                visible: displayedSuitEffect != null,
+                suitLabel: displayedSuitEffect == null
+                    ? ''
+                    : _suitLabel(displayedSuitEffect!),
+                suitColor: displayedSuitEffect == null
+                    ? Colors.transparent
+                    : _suitColor(displayedSuitEffect!),
+              ),
+            ),
           ],
         ),
       ),
@@ -918,7 +1441,10 @@ void _goToNextTurn() {
 }
 
 class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.label});
+  const _StatusChip({
+    super.key,
+    required this.label,
+  });
 
   final String label;
 
