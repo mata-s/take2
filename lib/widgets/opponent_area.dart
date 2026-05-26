@@ -7,20 +7,22 @@ class OpponentArea extends StatelessWidget {
     super.key,
     required this.players,
     required this.currentPlayerIndex,
+    required this.finishOrder,
+    required this.finishPlaces,
   });
 
   final List<PlayerState> players;
   final int currentPlayerIndex;
+  final List<String> finishOrder;
+  final Map<String, int> finishPlaces;
 
   @override
   Widget build(BuildContext context) {
-    if (players.length < 4) {
+    if (players.length <= 1) {
       return const SizedBox(height: 150);
     }
 
-    final leftPlayer = players[1];
-    final topPlayer = players[2];
-    final rightPlayer = players[3];
+    final opponentCount = players.length - 1;
 
     return SizedBox(
       height: 212,
@@ -29,32 +31,77 @@ class OpponentArea extends StatelessWidget {
         clipBehavior: Clip.none,
         alignment: Alignment.center,
         children: [
-          Positioned(
-            top: -66,
-            child: _OpponentHandView(
-              player: topPlayer,
-              isTurn: currentPlayerIndex == 2,
-              direction: _OpponentDirection.top,
+          if (opponentCount == 1)
+            Positioned(
+              top: -36,
+              child: _OpponentHandView(
+                player: players[1],
+                isTurn: currentPlayerIndex == 1,
+                direction: _OpponentDirection.top,
+                finishOrder: finishOrder,
+                finishPlaces: finishPlaces,
+              ),
             ),
-          ),
-          Positioned(
-            left: -102,
-            top: 48,
-            child: _OpponentHandView(
-              player: leftPlayer,
-              isTurn: currentPlayerIndex == 1,
-              direction: _OpponentDirection.left,
+
+          if (opponentCount == 2) ...[
+            Positioned(
+              left: -102,
+              top: 48,
+              child: _OpponentHandView(
+                player: players[1],
+                isTurn: currentPlayerIndex == 1,
+                direction: _OpponentDirection.left,
+                finishOrder: finishOrder,
+                finishPlaces: finishPlaces,
+              ),
             ),
-          ),
-          Positioned(
-            right: -102,
-            top: 48,
-            child: _OpponentHandView(
-              player: rightPlayer,
-              isTurn: currentPlayerIndex == 3,
-              direction: _OpponentDirection.right,
+            Positioned(
+              right: -102,
+              top: 48,
+              child: _OpponentHandView(
+                player: players[2],
+                isTurn: currentPlayerIndex == 2,
+                direction: _OpponentDirection.right,
+                finishOrder: finishOrder,
+                finishPlaces: finishPlaces,
+              ),
             ),
-          ),
+          ],
+
+          if (opponentCount >= 3) ...[
+            Positioned(
+              top: -66,
+              child: _OpponentHandView(
+                player: players[2],
+                isTurn: currentPlayerIndex == 2,
+                direction: _OpponentDirection.top,
+                finishOrder: finishOrder,
+                finishPlaces: finishPlaces,
+              ),
+            ),
+            Positioned(
+              left: -102,
+              top: 48,
+              child: _OpponentHandView(
+                player: players[1],
+                isTurn: currentPlayerIndex == 1,
+                direction: _OpponentDirection.left,
+                finishOrder: finishOrder,
+                finishPlaces: finishPlaces,
+              ),
+            ),
+            Positioned(
+              right: -102,
+              top: 48,
+              child: _OpponentHandView(
+                player: players[3],
+                isTurn: currentPlayerIndex == 3,
+                direction: _OpponentDirection.right,
+                finishOrder: finishOrder,
+                finishPlaces: finishPlaces,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -68,11 +115,15 @@ class _OpponentHandView extends StatelessWidget {
     required this.player,
     required this.isTurn,
     required this.direction,
+    required this.finishOrder,
+    required this.finishPlaces,
   });
 
   final PlayerState player;
   final bool isTurn;
   final _OpponentDirection direction;
+  final List<String> finishOrder;
+  final Map<String, int> finishPlaces;
 
   @override
   Widget build(BuildContext context) {
@@ -135,6 +186,8 @@ class _OpponentHandView extends StatelessWidget {
             child: _OpponentLabel(
               player: player,
               isTurn: isTurn,
+              finishOrder: finishOrder,
+              finishPlaces: finishPlaces,
             ),
           ),
         ],
@@ -147,13 +200,18 @@ class _OpponentLabel extends StatelessWidget {
   const _OpponentLabel({
     required this.player,
     required this.isTurn,
+    required this.finishOrder,
+    required this.finishPlaces,
   });
 
   final PlayerState player;
   final bool isTurn;
+  final List<String> finishOrder;
+  final Map<String, int> finishPlaces;
 
   @override
   Widget build(BuildContext context) {
+    final finishedPlace = finishPlaces[player.name];
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -187,9 +245,10 @@ class _OpponentLabel extends StatelessWidget {
                 );
               },
               child: player.hasFinished
-                  ? const SizedBox(
-                      key: ValueKey('finished'),
-                      height: 0,
+                  ? _OpponentStatusText(
+                      key: ValueKey('finished-${finishedPlace ?? 0}'),
+                      label: finishedPlace == null ? '上がり' : '$finishedPlace位',
+                      color: const Color(0xFFFFC857),
                     )
                   : player.isReach
                       ? const _OpponentStatusText(
@@ -253,7 +312,7 @@ class _OpponentCardFan extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isFinished) {
-      return const _FinishedBadge();
+      return const SizedBox.shrink();
     }
 
     // 相手の手札は中身を見せず、裏向きの束として表現する。
@@ -296,39 +355,6 @@ class _OpponentCardFan extends StatelessWidget {
   }
 }
 
-class _FinishedBadge extends StatelessWidget {
-  const _FinishedBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFC857).withOpacity(0.18),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: const Color(0xFFFFC857).withOpacity(0.9),
-          width: 1.4,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFFFC857).withOpacity(0.22),
-            blurRadius: 18,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: const Text(
-        '上がり',
-        style: TextStyle(
-          color: Color(0xFFFFC857),
-          fontSize: 13,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
 
 class _OpponentBackCard extends StatelessWidget {
   const _OpponentBackCard({

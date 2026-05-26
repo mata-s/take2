@@ -11,6 +11,7 @@ class PlayerHandArea extends StatelessWidget {
     required this.selectedIndexes,
     required this.canSelect,
     this.playableIndexes = const <int>{},
+    this.highlightedIndex,
     required this.onCardTap,
   });
 
@@ -18,6 +19,7 @@ class PlayerHandArea extends StatelessWidget {
   final Set<int> selectedIndexes;
   final bool canSelect;
   final Set<int> playableIndexes;
+  final int? highlightedIndex;
   final ValueChanged<int> onCardTap;
 
   @override
@@ -59,9 +61,14 @@ class PlayerHandArea extends StatelessWidget {
           final distanceFromCenter = index - centerIndex;
           final rotate = distanceFromCenter * 0.045;
           final isSelected = selectedIndexes.contains(originalIndex);
-          final isPlayable = canSelect && playableIndexes.contains(originalIndex);
+          final isHighlighted = highlightedIndex == originalIndex;
+          final highlightAnimationKey = ValueKey(
+            'highlight-$originalIndex-${hand.length}-$isHighlighted',
+          );
           final x = startX + baseSpacing * index;
-          final y = 28.0 + distanceFromCenter.abs() * 3 - (isSelected ? 18 : 0);
+          final y = 28.0 +
+              distanceFromCenter.abs() * 3 -
+              (isSelected ? 18 : 0);
 
           return Positioned(
             left: x,
@@ -69,33 +76,40 @@ class PlayerHandArea extends StatelessWidget {
             child: Transform.rotate(
               angle: rotate,
               alignment: Alignment.bottomCenter,
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 160),
-                opacity: 1,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: isPlayable && !isSelected
-                        ? [
-                            BoxShadow(
-                              color: const Color(0xFFFFC857).withOpacity(0.16),
-                              blurRadius: 12,
-                              spreadRadius: 1,
-                            ),
-                          ]
-                        : const [],
-                  ),
-                  child: AnimatedCardShell(
-                    isSelected: isSelected,
-                    child: PlayingCardWidget(
-                      rank: card.rankLabel,
-                      suit: card.suitLabel,
+              child: TweenAnimationBuilder<double>(
+                key: highlightAnimationKey,
+                tween: Tween<double>(
+                  begin: isHighlighted ? 0 : 1,
+                  end: 1,
+                ),
+                duration: const Duration(milliseconds: 460),
+                curve: Curves.easeOutCubic,
+                builder: (context, t, child) {
+                  final insertSlide = isHighlighted ? (1 - t) * 22 : 0.0;
+
+                  return Transform.translate(
+                    offset: Offset(0, -insertSlide),
+                    child: child,
+                  );
+                },
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 160),
+                  opacity: 1,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOut,
+                    padding: EdgeInsets.zero,
+                    decoration: const BoxDecoration(),
+                    child: AnimatedCardShell(
                       isSelected: isSelected,
-                      width: cardWidth,
-                      height: cardHeight,
-                      onTap: canSelect ? () => onCardTap(originalIndex) : null,
+                      child: PlayingCardWidget(
+                        rank: card.rankLabel,
+                        suit: card.suitLabel,
+                        isSelected: isSelected,
+                        width: cardWidth,
+                        height: cardHeight,
+                        onTap: canSelect ? () => onCardTap(originalIndex) : null,
+                      ),
                     ),
                   ),
                 ),

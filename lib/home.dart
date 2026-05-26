@@ -1,9 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'game.dart';
+import 'rule_settings_page.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  static const _useJokersKey = 'use_jokers';
+
+  bool useJokers = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRuleSettings();
+  }
+
+  Future<void> _loadRuleSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+
+    setState(() {
+      useJokers = prefs.getBool(_useJokersKey) ?? false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,10 +64,43 @@ class HomePage extends StatelessWidget {
               _MenuButton(
                 label: 'ゲーム開始',
                 icon: Icons.play_arrow_rounded,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const GamePage()),
+                onTap: () async {
+                  final playerCount = await showModalBottomSheet<int>(
+                    context: context,
+                    backgroundColor: const Color(0xFF123F35),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(24),
+                      ),
+                    ),
+                    builder: (_) => const _PlayerCountSheet(),
                   );
+
+                  if (playerCount == null) return;
+
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => GamePage(
+                        playerCount: playerCount,
+                        useJokers: useJokers,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+              _MenuButton(
+                label: '禁止ルール設定',
+                icon: Icons.block_rounded,
+                isSecondary: true,
+                onTap: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const RuleSettingsPage(),
+                    ),
+                  );
+
+                  _loadRuleSettings();
                 },
               ),
               const SizedBox(height: 14),
@@ -108,6 +167,53 @@ class _MenuButton extends StatelessWidget {
                 ? BorderSide(color: Colors.white.withOpacity(0.18))
                 : BorderSide.none,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlayerCountSheet extends StatelessWidget {
+  const _PlayerCountSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '人数を選択',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 18),
+            for (final count in [2, 3, 4]) ...[
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: FilledButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(count);
+                  },
+                  child: Text(
+                    '$count 人で遊ぶ',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+              if (count != 4) const SizedBox(height: 12),
+            ],
+          ],
         ),
       ),
     );

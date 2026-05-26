@@ -21,6 +21,8 @@ class DawnEffect extends StatelessWidget {
 
     final label = isHikiDawn ? '引きどん！' : 'ドーン！';
 
+    final isPlayerTarget = toPlayerName == 'あなた';
+
     return IgnorePointer(
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 180),
@@ -43,7 +45,10 @@ class DawnEffect extends StatelessWidget {
         child: visible
             ? Container(
                 key: ValueKey(label),
-                color: Colors.black.withOpacity(0.28),
+                color: (isPlayerTarget
+                        ? const Color(0xFF5A0000)
+                        : Colors.black)
+                    .withOpacity(0.34),
                 child: Center(
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -107,6 +112,19 @@ class DawnEffect extends StatelessWidget {
                             letterSpacing: 1.2,
                           ),
                         ),
+                        if (isPlayerTarget) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            '$fromPlayerName に\nドーンされた！',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
