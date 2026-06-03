@@ -45,15 +45,27 @@ class FriendService {
         .doc(currentUser.uid)
         .collection('friendRequests')
         .where('status', isEqualTo: 'pending')
-        .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) {
+      final requests = snapshot.docs.map((doc) {
         return {
           'id': doc.id,
           ...doc.data(),
         };
       }).toList();
+
+      requests.sort((a, b) {
+        final aCreatedAt = a['createdAt'];
+        final bCreatedAt = b['createdAt'];
+
+        if (aCreatedAt is Timestamp && bCreatedAt is Timestamp) {
+          return bCreatedAt.compareTo(aCreatedAt);
+        }
+
+        return 0;
+      });
+
+      return requests;
     });
   }
 
