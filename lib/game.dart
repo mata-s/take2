@@ -655,7 +655,7 @@ int? _resolvePendingFinishAfterPenaltyDraw({
     }
 
     if (targetPlayerIndex == 0) {
-      Future.delayed(const Duration(milliseconds: 980), () {
+      Future.delayed(const Duration(milliseconds: 1400), () {
         if (!mounted) return;
         if (gameOverDialogShown) return;
         if (players.isEmpty || currentPlayerIndex != 0) return;
@@ -756,7 +756,7 @@ int? _resolvePendingFinishAfterPenaltyDraw({
     }
 
     if (targetIndex == 0) {
-      Future.delayed(const Duration(milliseconds: 980), () {
+      Future.delayed(const Duration(milliseconds: 1400), () {
         if (!mounted) return;
         if (gameOverDialogShown) return;
         if (players.isEmpty || currentPlayerIndex != 0) return;
@@ -1088,6 +1088,7 @@ void _goToNextTurn({Duration delayBeforeNextEffect = Duration.zero}) {
 
   setState(() {
     selectedIndexes.clear();
+    highlightedDrawnCardIndex = null;
     isPlayerTurnReady = false;
     hasDrawnThisTurn = false;
     hasDeclinedReachThisTurn = false;
@@ -1747,6 +1748,7 @@ if (RuleService.isSuitChangeCard(baseCard)) {
 
       mustDrawAgain = false;
       selectedIndexes.clear();
+      highlightedDrawnCardIndex = null;
     });
 
     // CPU Dawn support: schedule CPU Dawn if possible after player plays cards

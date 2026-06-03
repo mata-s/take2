@@ -1,5 +1,3 @@
-
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class OnlineRoom {
@@ -10,6 +8,7 @@ class OnlineRoom {
     required this.createdAt,
     required this.status,
     required this.maxPlayers,
+    required this.fillWithCpu,
     required this.currentTurnPlayerId,
     required this.started,
   });
@@ -23,6 +22,7 @@ class OnlineRoom {
   final String status;
 
   final int maxPlayers;
+  final bool fillWithCpu;
   final String? currentTurnPlayerId;
   final bool started;
 
@@ -40,6 +40,7 @@ class OnlineRoom {
           map['createdAt'] as Timestamp? ?? Timestamp.now(),
       status: map['status'] as String? ?? 'waiting',
       maxPlayers: map['maxPlayers'] as int? ?? 4,
+      fillWithCpu: map['fillWithCpu'] as bool? ?? true,
       currentTurnPlayerId:
           map['currentTurnPlayerId'] as String?,
       started: map['started'] as bool? ?? false,
@@ -53,6 +54,7 @@ class OnlineRoom {
       'createdAt': createdAt,
       'status': status,
       'maxPlayers': maxPlayers,
+      'fillWithCpu': fillWithCpu,
       'currentTurnPlayerId': currentTurnPlayerId,
       'started': started,
     };
@@ -65,6 +67,7 @@ class OnlineRoom {
     Timestamp? createdAt,
     String? status,
     int? maxPlayers,
+    bool? fillWithCpu,
     String? currentTurnPlayerId,
     bool? started,
   }) {
@@ -76,6 +79,7 @@ class OnlineRoom {
       createdAt: createdAt ?? this.createdAt,
       status: status ?? this.status,
       maxPlayers: maxPlayers ?? this.maxPlayers,
+      fillWithCpu: fillWithCpu ?? this.fillWithCpu,
       currentTurnPlayerId:
           currentTurnPlayerId ?? this.currentTurnPlayerId,
       started: started ?? this.started,

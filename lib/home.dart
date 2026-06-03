@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:take2/friends/friend_approval_page.dart';
+import 'package:take2/friends/friend_request_page.dart';
+import 'package:take2/friends/friend_list_page.dart';
+import 'package:take2/friends/invitation_list_page.dart';
 
 import 'game.dart';
+import 'online/create_room_page.dart';
+import 'online/room_lobby_page.dart';
+import 'services/online_room_service.dart';
 import 'rule_settings_page.dart';
+import 'profile_page.dart';
+
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,6 +24,7 @@ class _HomePageState extends State<HomePage> {
   static const _useJokersKey = 'use_jokers';
 
   bool useJokers = false;
+  final OnlineRoomService _onlineRoomService = OnlineRoomService();
 
   @override
   void initState() {
@@ -31,15 +41,184 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+
+  Future<void> _joinFriendRoom() async {
+    final controller = TextEditingController();
+
+    final roomId = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('ルーム参加'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(
+              labelText: 'ルームコード',
+              hintText: '例：AB12CD',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('キャンセル'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final value = controller.text.trim().toUpperCase();
+                if (value.isEmpty) return;
+                Navigator.of(context).pop(value);
+              },
+              child: const Text('参加'),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+
+    if (roomId == null || roomId.isEmpty) return;
+
+    try {
+      await _onlineRoomService.joinRoom(
+        roomId: roomId,
+        playerName: 'あなた',
+      );
+
+      if (!mounted) return;
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => RoomLobbyPage(roomId: roomId),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('ルーム参加に失敗しました：$error'),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: Drawer(
+        child: SafeArea(
+          child: Column(
+            children: [
+              const DrawerHeader(
+                child: Center(
+                  child: Text(
+                    'Take2',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.person),
+                title: const Text('プロフィール'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ProfilePage(),
+                    ),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.person_add_alt_1_rounded),
+                title: const Text('フレンド申請'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const FriendRequestPage(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.mark_email_unread_rounded),
+                title: const Text('フレンド承認'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const FriendApprovalPage(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.groups_rounded),
+                title: const Text('フレンド一覧'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => FriendListPage(),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.mail_outline_rounded),
+                title: const Text('招待'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const InvitationListPage(),
+                    ),
+                  );
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.settings),
+                title: const Text('設定'),
+                onTap: () {
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
             children: [
-              const SizedBox(height: 56),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Builder(
+                  builder: (context) {
+                    return IconButton(
+                      icon: const Icon(
+                        Icons.person_outline,
+                        color: Colors.white,
+                        size: 30,
+                      ),
+                      onPressed: () {
+                        Scaffold.of(context).openDrawer();
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
               const Text(
                 'Take2',
                 style: TextStyle(
@@ -87,6 +266,26 @@ class _HomePageState extends State<HomePage> {
                     ),
                   );
                 },
+              ),
+              const SizedBox(height: 14),
+              _MenuButton(
+                label: 'フレンドルーム作成',
+                icon: Icons.group_add_rounded,
+                isSecondary: true,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const CreateRoomPage(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+              _MenuButton(
+                label: 'フレンドルーム参加',
+                icon: Icons.login_rounded,
+                isSecondary: true,
+                onTap: _joinFriendRoom,
               ),
               const SizedBox(height: 14),
               _MenuButton(

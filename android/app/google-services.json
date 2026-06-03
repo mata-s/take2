@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "515014694287",
+    "project_id": "take2-13338",
+    "storage_bucket": "take2-13338.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:515014694287:android:a1ce555a1699047dd367fa",
+        "android_client_info": {
+          "package_name": "com.example.take2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA19SDbz8KJrYa3t4PwWRYyABS8nWX-6yE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
